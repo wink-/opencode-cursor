@@ -12,6 +12,18 @@
   <a href="https://nomadcxx.github.io/opencode-cursor/docs/">Documentation</a>
 </p>
 
+> [!WARNING]
+> **This is a maintained fork** ([wink-/opencode-cursor](https://github.com/wink-/opencode-cursor)) of [Nomadcxx/opencode-cursor](https://github.com/Nomadcxx/opencode-cursor), which has been dormant since 2026-08-27. It fixes OpenCode **v2.0.14** compatibility (plugin load failures), adds perf defaults (agent pool, session resume, workspace trust), and a config-driven **SDK backend** using a Cursor API key (~2s warm requests vs ~8-11s via the cursor-agent CLI).
+>
+> Versions are suffixed `2.5.8-fork.N`. Install from git (no bun needed, `dist/` is tracked):
+>
+> ```bash
+> npm install -g --allow-git=all github:wink-/opencode-cursor
+> open-cursor install
+> ```
+>
+> See **[FORK.md](./FORK.md)** for every delta vs upstream, install details, validation numbers, and how to sync from upstream.
+
 `open-cursor` connects OpenCode to the models available through your Cursor
 subscription. It translates prompts, streaming responses, thinking, and tool
 calls between OpenCode and `cursor-agent`.

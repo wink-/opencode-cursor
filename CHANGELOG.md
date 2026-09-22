@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.8-fork.6] - 2026-09-22
+
+### Fixed
+
+- **Unhandled-rejection crash when the SDK runner dies with requests pending** (killed runner, shutting-down CLI): the rejected exit promises had no attached handler and crashed the hosting process — observed taking down the OpenCode service. Promises are now marked handled at creation and the pending-request rejection loops are guarded. Crash-drill verified.
+
+## [2.5.8-fork.5] - 2026-09-22
+
+### Added
+
+- **SDK model-id mapping** in `sdk-runner.mjs`: resolves OpenCode's cursor-agent-style ids (effort-suffixed, legacy dotted, `auto`) against `Cursor.models.list()` with candidate normalization.
+
+### Documentation
+
+- FORK.md: SDK backend latency numbers and singleton operational notes.
+
+## [2.5.8-fork.4] - 2026-09-22
+
+### Added
+
+- **Config-driven backend selection**: `"backend": "sdk"` under `provider["cursor-acp"]` in opencode.json(c). Resolution: `CURSOR_ACP_BACKEND` env > config value > `auto`.
+
+## [2.5.8-fork.3] - 2026-09-22
+
+### Changed
+
+- **Pass `--trust` to cursor-agent by default**, fixing hangs on the interactive workspace-trust prompt in non-TTY/untrusted directories. Opt out with `CURSOR_ACP_TRUST=false`.
+
+## [2.5.8-fork.2] - 2026-09-22
+
+### Changed
+
+- **Agent pool and session resume ON by default** (opt out: `CURSOR_ACP_AGENT_POOL=0`, `CURSOR_ACP_SESSION_RESUME=0`).
+
+## [2.5.8-fork.1] - 2026-09-22
+
+### Fixed
+
+- **OpenCode v2.0.14 compatibility**: polyfill `ctx.catalog` through `ctx.provider.transform` when absent (was crashing setup with a TypeError).
+- **Installer no longer writes `plugin: ["cursor-acp"]`** into opencode.json (caused `Plugin entrypoint not found: cursor-acp` on every server start on OpenCode v2); cleans the marker up when found.
+
+### Changed
+
+- `dist/` is tracked so git installs work without bun; version suffixed `-fork.N`.
+
 ### BREAKING
 
 - **Authentication:** API key authentication now supports three methods with priority: (1) `CURSOR_API_KEY` environment variable, (2) OpenCode auth store (`opencode auth login --provider cursor-acp`), (3) provider options in `opencode.json`. Get your API key from [cursor.com/settings](https://cursor.com/settings). Legacy OAuth flow via `cursor-agent login` is no longer supported.
