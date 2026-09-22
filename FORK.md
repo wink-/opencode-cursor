@@ -68,6 +68,15 @@ Upstream is tracked as the `upstream` remote; fixes live on `main`.
    persistent-connection SDK backend and avoid the per-request cursor-agent
    handshake.
 
+8. **SDK model-id mapping (2.5.8-fork.5).** The OpenCode provider exposes
+   cursor-agent-style model ids (effort-suffixed like `claude-sonnet-5-low`,
+   legacy dotted like `claude-4.5-sonnet`, and `auto`), while @cursor/sdk
+   takes its own base ids (`claude-sonnet-5`, `claude-sonnet-4-5`,
+   `default`). sdk-runner.mjs now resolves the requested id against
+   `Cursor.models.list()` with candidate normalization (strip effort
+   suffixes, strip `cursor-` prefix, claude dotted→dash reorder,
+   `auto`→`default`). Effort variants run at the model's default effort.
+
 ## Install (any machine with node/npm + OpenCode v2.0.x)
 
 ```bash
@@ -106,16 +115,23 @@ end-to-end unless noted):
 | Path | Time |
 |---|---|
 | native provider (github-copilot, same model) | 0.8-1.3s |
-| direct `cursor-agent -p` one-shot | 6.4-9.8s |
-| cursor-agent process boot alone (`--version`) | ~0.6s |
-| through plugin, pool off (fork.1) | 7.6-11.2s (warm turns 9.0-9.5s) |
-| through plugin, fork.2+ defaults | marginal: pool saves the Node runner boot only; resume helps anchored multi-turns |
+| cursor-acp via cursor-agent backend | 7.6-11.2s (warm turns 9.0-9.5s) |
+| cursor-acp via SDK backend (fork.5, key + `"backend": "sdk"`) | 1.7-2.5s warm, ~5s cold (runner respawn), ~3.4s for legacy dotted model names |
 
-Conclusion: the dominant per-request cost is inside cursor-agent itself
-(spawn + auth + gateway handshake + model TTFB), which reoccurs every request
-because the runner spawns cursor-agent per invocation. The plugin cannot
-remove it on the cursor-agent backend; a Cursor API key
-(`CURSOR_ACP_BACKEND=sdk`) would enable the persistent-connection SDK path.
+The SDK backend (persistent runner process, `Agent.create` per request) is
+the fast path when a Cursor API key is configured: enable with
+`opencode auth login` (cursor-acp) plus `"backend": "sdk"` under
+`provider["cursor-acp"]`. Cold start pays node boot + SDK import once per
+runner lifetime; each request still pays `Agent.create` (~0.5s).
+
+Operational notes:
+- The SDK runner is a long-lived singleton that loads
+  `scripts/sdk-runner.mjs` into memory at spawn. After updating the package,
+  kill lingering runners (`pgrep -f "node .*sdk-runner"` → kill) or restart
+  the OpenCode service, or the singleton keeps running the old code.
+- The cursor-agent backend remains the fallback when no key is configured;
+  its per-request cost (spawn + auth + handshake, ~6s) is inside Cursor's
+  CLI and not removable plugin-side.
 
 Known test failures: `tests/unit/proxy/plugin-resume.test.ts` has 3 failures
 from cross-test cache leakage that also fail on pristine upstream 2.5.8;
