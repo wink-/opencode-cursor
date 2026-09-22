@@ -741,8 +741,10 @@ class SdkRunnerSingleton {
       log3.error(`sdk runner exited with code ${code}`);
       this.runnerProcess = null;
       for (const [id, pending] of this.pendingRequests.entries()) {
-        pending.promiseRejector(new Error(`Runner exited with code ${code}`));
-        pending.controller.error(new Error(`Runner exited with code ${code}`));
+        try {
+          pending.promiseRejector(new Error(`Runner exited with code ${code}`));
+          pending.controller.error(new Error(`Runner exited with code ${code}`));
+        } catch {}
       }
       this.pendingRequests.clear();
     });
@@ -750,8 +752,10 @@ class SdkRunnerSingleton {
       log3.error("sdk runner spawn error", { error: err.message });
       this.runnerProcess = null;
       for (const [id, pending] of this.pendingRequests.entries()) {
-        pending.promiseRejector(err);
-        pending.controller.error(err);
+        try {
+          pending.promiseRejector(err);
+          pending.controller.error(err);
+        } catch {}
       }
       this.pendingRequests.clear();
     });
@@ -835,6 +839,7 @@ function createSdkBunChild(options) {
     resolveExited = resolve2;
     rejectExited = reject;
   });
+  exited.catch(() => {});
   const stdout = new ReadableStream({
     start: async (controller) => {
       try {
@@ -938,6 +943,7 @@ var init_sdk_child = __esm(() => {
           resolveExited = resolve2;
           rejectExited = reject;
         });
+        exited.catch(() => {});
         const dummyController = {
           enqueue: (data) => {
             this.stdout.write(data);

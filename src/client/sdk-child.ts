@@ -191,10 +191,13 @@ class SdkRunnerSingleton {
     this.runnerProcess.on("close", (code) => {
       log.error(`sdk runner exited with code ${code}`);
       this.runnerProcess = null;
-      // Fail all pending requests
+      // Fail all pending requests (guarded: controller.error can throw
+      // synchronously if a stream is already closed)
       for (const [id, pending] of this.pendingRequests.entries()) {
-        pending.promiseRejector(new Error(`Runner exited with code ${code}`));
-        pending.controller.error(new Error(`Runner exited with code ${code}`));
+        try {
+          pending.promiseRejector(new Error(`Runner exited with code ${code}`));
+          pending.controller.error(new Error(`Runner exited with code ${code}`));
+        } catch {}
       }
       this.pendingRequests.clear();
     });
@@ -202,10 +205,12 @@ class SdkRunnerSingleton {
     this.runnerProcess.on("error", (err) => {
       log.error("sdk runner spawn error", { error: err.message });
       this.runnerProcess = null;
-      // Fail all pending requests
+      // Fail all pending requests (guarded, as above)
       for (const [id, pending] of this.pendingRequests.entries()) {
-        pending.promiseRejector(err);
-        pending.controller.error(err);
+        try {
+          pending.promiseRejector(err);
+          pending.controller.error(err);
+        } catch {}
       }
       this.pendingRequests.clear();
     });
@@ -346,6 +351,11 @@ export function createSdkBunChild(options: {
     resolveExited = resolve;
     rejectExited = reject;
   });
+  // Fork fix: if the runner dies with this request pending, the singleton
+  // rejects `exited`. Not every consumer attaches a rejection handler, and an
+  // unhandled rejection kills the hosting process (CLI or server). Mark the
+  // promise as handled here; downstream awaiters still observe the rejection.
+  void exited.catch(() => {});
 
   const stdout = new ReadableStream<Uint8Array>({
     start: async (controller) => {
@@ -423,6 +433,9 @@ export class SdkNodeChild extends EventEmitter {
         resolveExited = resolve;
         rejectExited = reject;
       });
+      // Fork fix: prevent unhandled-rejection crashes when the runner dies
+      // with this request pending (see the bun variant above).
+      void exited.catch(() => {});
 
       const dummyController = {
         enqueue: (data: Uint8Array) => {
