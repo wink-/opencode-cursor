@@ -24,7 +24,12 @@ const DEFAULT_IDLE_MS = 15 * 60 * 1000;
 
 export function isAgentPoolEnabled(): boolean {
   const value = process.env.CURSOR_ACP_AGENT_POOL?.toLowerCase();
-  return value === "1" || value === "true" || value === "on" || value === "yes";
+  // Fork default: pooled runners eliminate the per-request cursor-agent spawn
+  // and auth handshake (~5-7s on cold starts). Opt out with 0/false/off/no.
+  if (value === "0" || value === "false" || value === "off" || value === "no") {
+    return false;
+  }
+  return true;
 }
 
 export function parseAgentPoolIdleMs(): number {

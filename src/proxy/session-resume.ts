@@ -154,10 +154,13 @@ export function buildSessionKey(workspace: string, model: string, anchor: string
   return `${workspace}\0${model}\0${anchor}`;
 }
 
-/** Return whether `CURSOR_ACP_SESSION_RESUME` is enabled (1/true/on/yes). */
+/** Return whether session resume is enabled (fork default: on; opt out with 0/false/off/no). */
 export function isSessionResumeEnabled(): boolean {
   const value = process.env.CURSOR_ACP_SESSION_RESUME?.toLowerCase();
-  return value === "1" || value === "true" || value === "on" || value === "yes";
+  if (value === "0" || value === "false" || value === "off" || value === "no") {
+    return false;
+  }
+  return true;
 }
 
 /**

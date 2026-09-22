@@ -36,6 +36,14 @@ Upstream is tracked as the `upstream` remote; fixes live on `main`.
 4. **Version is suffixed** (`2.5.8-fork.1`) so loaded-fork vs upstream builds
    are distinguishable in logs and `open-cursor --version`.
 
+5. **Perf defaults flipped (2.5.8-fork.2): agent pool and session resume are
+   ON by default.** Upstream ships both features but disables them behind env
+   vars read from the OpenCode server process (awkward to set, so in practice
+   every request cold-starts a `cursor-agent` child: ~6-7s spawn + auth +
+   gateway handshake, measured). The fork enables them by default; opt out
+   with `CURSOR_ACP_AGENT_POOL=0` / `CURSOR_ACP_SESSION_RESUME=0` in the
+   server env. (Measured effect: see the validation section below.)
+
 ## Install (any machine with node/npm + OpenCode v2.0.x)
 
 ```bash
@@ -63,3 +71,8 @@ Verified on OpenCode v2.0.14 (Linux): plugin loads clean in server logs
 (no `failed to load plugin` entries), `opencode models` lists 231
 `cursor-acp/*` models, and `open-cursor install` produces a config without
 the `plugin`-array marker.
+
+Latency (tiny "reply OK" prompt, same model claude-sonnet-5, this fork's
+dev machine, opencode run end-to-end): native provider baseline ~0.9s;
+cursor-acp with upstream defaults ~9-11s (per-request cursor-agent spawn);
+after the 2.5.8-fork.2 defaults — see docs/log.md for the benchmark table.

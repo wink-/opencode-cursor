@@ -985,7 +985,10 @@ import { fileURLToPath as fileURLToPath2 } from "node:url";
 import { dirname as dirname2, resolve as resolve2 } from "node:path";
 function isAgentPoolEnabled() {
   const value = process.env.CURSOR_ACP_AGENT_POOL?.toLowerCase();
-  return value === "1" || value === "true" || value === "on" || value === "yes";
+  if (value === "0" || value === "false" || value === "off" || value === "no") {
+    return false;
+  }
+  return true;
 }
 function parseAgentPoolIdleMs() {
   const value = process.env.CURSOR_ACP_AGENT_POOL_IDLE_MS?.trim();
@@ -2048,7 +2051,10 @@ function buildSessionKey(workspace, model, anchor) {
 }
 function isSessionResumeEnabled() {
   const value = process.env.CURSOR_ACP_SESSION_RESUME?.toLowerCase();
-  return value === "1" || value === "true" || value === "on" || value === "yes";
+  if (value === "0" || value === "false" || value === "off" || value === "no") {
+    return false;
+  }
+  return true;
 }
 function getResumeChatId(sessionKey, expectedPrefix, toolFingerprint) {
   const entry = cache.get(sessionKey);

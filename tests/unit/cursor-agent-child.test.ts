@@ -13,8 +13,8 @@ describe("cursor-agent-child", () => {
     delete process.env.CURSOR_ACP_CURSOR_AGENT_RUNNER_PATH;
   });
 
-  it("is disabled by default", () => {
-    expect(isAgentPoolEnabled()).toBe(false);
+  it("is enabled by default (fork)", () => {
+    expect(isAgentPoolEnabled()).toBe(true);
   });
 
   it.each([
@@ -24,6 +24,8 @@ describe("cursor-agent-child", () => {
     ["yes", true],
     ["0", false],
     ["false", false],
+    ["off", false],
+    ["no", false],
   ])("isAgentPoolEnabled(%p) === %p", (value, expected) => {
     process.env.CURSOR_ACP_AGENT_POOL = value;
     expect(isAgentPoolEnabled()).toBe(expected);
