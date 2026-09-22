@@ -77,6 +77,20 @@ Upstream is tracked as the `upstream` remote; fixes live on `main`.
    suffixes, strip `cursor-` prefix, claude dotted→dash reorder,
    `auto`→`default`). Effort variants run at the model's default effort.
 
+9. **Unhandled-rejection crash fix (2.5.8-fork.6).** When the SDK runner
+   process died with requests pending (killed runner, shutting-down CLI),
+   the rejected exit promises had no attached handler and the unhandled
+   rejection crashed the hosting process — observed taking down the OpenCode
+   service. Promises are now marked handled at creation and the
+   pending-request rejection loops are guarded. Verified with a crash drill:
+   runner killed mid-flight, service survived, the request after the kill
+   succeeded, zero uncaught exceptions.
+
+   Note: sdk-runner processes requests serially; when OpenCode fires
+   concurrent requests (e.g. title generation + chat) they queue, roughly
+   doubling latency for short prompts. Standalone warm requests run
+   ~1.8-2.5s.
+
 ## Install (any machine with node/npm + OpenCode v2.0.x)
 
 ```bash
