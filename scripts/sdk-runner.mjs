@@ -187,6 +187,62 @@ function emitEvent(id, event) {
   writeProtocolLine(JSON.stringify({ id, event }) + "\n");
 }
 
+// ─── Model ID Resolution (fork) ────────────────────────────────────────────
+/**
+ * The OpenCode provider exposes cursor-agent-style model ids (effort-suffixed
+ * like `claude-sonnet-5-low`, legacy dotted like `claude-4.5-sonnet`, and the
+ * `auto` alias), while @cursor/sdk takes its own base ids (`claude-sonnet-5`,
+ * `claude-sonnet-4-5`, `default`). Resolve the requested id against the real
+ * SDK model list so requests don't fail on naming.
+ */
+const EFFORT_SUFFIX_RE = /(?:-(?:none|minimal|low|medium|high|xhigh|extra-high|max|fast|thinking))+$/;
+let sdkModelsCache;
+
+async function fetchSdkModelIds() {
+  if (sdkModelsCache) return sdkModelsCache;
+  const models = await Cursor.models.list();
+  sdkModelsCache = new Set(models.map((m) => m.id));
+  return sdkModelsCache;
+}
+
+function modelIdCandidates(requested) {
+  const out = [requested];
+  if (requested === "auto") {
+    out.push("default");
+    return out;
+  }
+  let base = requested.replace(/^cursor-/, "");
+  if (base !== requested) out.push(base);
+  const stripped = base.replace(EFFORT_SUFFIX_RE, "");
+  if (stripped !== base) out.push(stripped);
+  // Claude ids reorder versions in the SDK: claude-4.5-sonnet -> claude-sonnet-4-5
+  const dotted = stripped.match(/^(.*)-(\d+)\.(\d+)-(sonnet|opus|haiku)$/);
+  if (dotted) out.push(`${dotted[1]}-${dotted[4]}-${dotted[2]}-${dotted[3]}`);
+  const plain = stripped.match(/^(.*)-(\d+)-(sonnet|opus|haiku)$/);
+  if (plain) out.push(`${plain[1]}-${plain[3]}-${plain[2]}`);
+  return out;
+}
+
+async function resolveSdkModelId(requested) {
+  try {
+    const ids = await fetchSdkModelIds();
+    for (const candidate of modelIdCandidates(requested)) {
+      if (ids.has(candidate)) {
+        if (candidate !== requested) {
+          console.error(`[sdk-runner] model "${requested}" mapped to SDK id "${candidate}"`);
+        }
+        return candidate;
+      }
+    }
+    console.error(
+      `[sdk-runner] no SDK model match for "${requested}"; passing through (SDK will error with valid ids)`,
+    );
+  } catch (err) {
+    console.error(`[sdk-runner] model list unavailable (${String(err)}); using "${requested}" as-is`);
+  }
+  return requested;
+}
+
 // ─── List Models Handler ───────────────────────────────────────────────────
 /**
  * Handle a listModels request: call Cursor.models.list() and emit wrapped events.
@@ -245,11 +301,12 @@ async function handleRequest(apiKey, request) {
   let agent = null;
   const timelineStart = Date.now();
   try {
-    // Timing: Agent.create
+    // Timing: Agent.create (includes fork model-id resolution)
     const createStart = Date.now();
+    const sdkModelId = await resolveSdkModelId(model);
     agent = await Agent.create({
       apiKey,
-      model: { id: model },
+      model: { id: sdkModelId },
       mode: "agent",
       local: { cwd, settingSources: SETTING_SOURCES },
     });
