@@ -281,6 +281,9 @@ export function buildCursorAgentCommand(
   if (FORCE_TOOL_MODE) {
     cmd.push("--force");
   }
+  if (AUTO_TRUST_WORKSPACE) {
+    cmd.push("--trust");
+  }
   return cmd;
 }
 
@@ -801,6 +804,11 @@ export async function fetchProxyHealthWithTimeout(
 }
 
 const FORCE_TOOL_MODE = process.env.CURSOR_ACP_FORCE !== "false";
+// cursor-agent prompts for workspace trust interactively on first contact with
+// a directory; through the plugin there is no TTY, so untrusted workspaces
+// hang every request until timeout. Trust by default (the user already chose
+// to run OpenCode in the directory); opt out with CURSOR_ACP_TRUST=false.
+const AUTO_TRUST_WORKSPACE = process.env.CURSOR_ACP_TRUST !== "false";
 const EMIT_TOOL_UPDATES = process.env.CURSOR_ACP_EMIT_TOOL_UPDATES === "true";
 const FORWARD_TOOL_CALLS = process.env.CURSOR_ACP_FORWARD_TOOL_CALLS !== "false";
 

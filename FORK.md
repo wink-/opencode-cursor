@@ -38,11 +38,25 @@ Upstream is tracked as the `upstream` remote; fixes live on `main`.
 
 5. **Perf defaults flipped (2.5.8-fork.2): agent pool and session resume are
    ON by default.** Upstream ships both features but disables them behind env
-   vars read from the OpenCode server process (awkward to set, so in practice
-   every request cold-starts a `cursor-agent` child: ~6-7s spawn + auth +
-   gateway handshake, measured). The fork enables them by default; opt out
-   with `CURSOR_ACP_AGENT_POOL=0` / `CURSOR_ACP_SESSION_RESUME=0` in the
-   server env. (Measured effect: see the validation section below.)
+   vars read from the OpenCode server process (awkward to set). The fork
+   enables them by default; opt out with `CURSOR_ACP_AGENT_POOL=0` /
+   `CURSOR_ACP_SESSION_RESUME=0` in the server env. Honest scope: the pool
+   keeps the plugin's Node *runner* warm but still spawns a cursor-agent child
+   per request, so it saves the runner boot (~0.1-0.3s), not the cursor-agent
+   handshake; session resume mainly saves conversation re-upload on
+   multi-turn sessions. The dominant per-request cost (~6s measured:
+   cursor-agent spawn + auth + gateway handshake) is inside Cursor's CLI and
+   is not removable plugin-side unless a Cursor API key is configured
+   (`CURSOR_ACP_BACKEND=sdk` + `CURSOR_API_KEY`, which uses persistent SDK
+   connections).
+
+6. **Workspace trust (2.5.8-fork.3): pass `--trust` to cursor-agent by
+   default.** Without a TTY, cursor-agent's interactive workspace-trust prompt
+   hangs every request in any directory cursor-agent hasn't trusted before —
+   through the plugin this surfaced as requests timing out with no error
+   output. OpenCode's own permission model already governs tool use, so
+   auto-trusting the workspace it runs in is consistent with upstream's
+   default-on `--force`. Opt out with `CURSOR_ACP_TRUST=false`.
 
 ## Install (any machine with node/npm + OpenCode v2.0.x)
 

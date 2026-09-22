@@ -88,6 +88,13 @@ async function handleRequest(request) {
     args.push("--force");
   }
 
+  // Workspace trust: the plugin runs cursor-agent without a TTY; an untrusted
+  // directory would block on the interactive trust prompt until timeout.
+  // Trust by default; opt out with CURSOR_ACP_TRUST=false in the server env.
+  if (process.env.CURSOR_ACP_TRUST !== "false") {
+    args.push("--trust");
+  }
+
   console.error(`[cursor-agent-runner] Request ${id}: model=${model}, cwd=${cwd}, resume=${!!resumeChatId}`);
 
   await new Promise((resolve) => {
