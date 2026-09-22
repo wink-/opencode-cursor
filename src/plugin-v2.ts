@@ -58,13 +58,27 @@ type V2SessionHook = {
     request: Request;
   }) => Promise<void>): Promise<V2Registration>;
 };
+type V2ProviderUpdate = (id: string, update: (provider: {
+  name: string;
+  settings?: Record<string, unknown>;
+}) => void) => void;
+
+type V2Catalog = {
+  transform: (callback: (draft: {
+    provider: { update: V2ProviderUpdate };
+  }) => void) => Promise<V2Registration>;
+};
+
 type V2Context = {
-  catalog: {
+  /** Present in newer OpenCode builds; absent in v2.0.14. */
+  catalog?: V2Catalog;
+  /**
+   * OpenCode v2.0.14 fallback: its ctx.provider.transform draft exposes the
+   * same update(id, fn) shape that catalog.provider.update uses.
+   */
+  provider?: {
     transform: (callback: (draft: {
-      provider: { update: (id: string, update: (provider: {
-        name: string;
-        settings?: Record<string, unknown>;
-      }) => void) => void };
+      update: V2ProviderUpdate;
     }) => void) => Promise<V2Registration>;
   };
   integration: {
@@ -218,8 +232,13 @@ export function createV2Setup() {
     }));
 
     // Register the cursor-acp provider + auth via catalog/integration transforms.
-    registrations.push(await ctx.catalog.transform((catalog) => {
-      catalog.provider.update(CURSOR_PROVIDER_ID, (p) => {
+    // OpenCode v2.0.14 does not expose ctx.catalog; adapt through
+    // ctx.provider.transform (same update(id, fn) shape) when it is missing.
+    const catalog: V2Catalog = ctx.catalog ?? {
+      transform: (callback) => ctx.provider!.transform((draft) => callback({ provider: draft })),
+    };
+    registrations.push(await catalog.transform((catalogDraft) => {
+      catalogDraft.provider.update(CURSOR_PROVIDER_ID, (p) => {
         p.name = "Cursor";
         p.settings = { ...p.settings, baseURL: proxyBaseURL };
       });

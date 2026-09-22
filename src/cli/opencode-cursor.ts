@@ -571,9 +571,15 @@ function writeConfig(configPath: string, config: any, noBackup: boolean, silent 
 }
 
 function ensureProvider(config: any, baseUrl: string) {
-  config.plugin = Array.isArray(config.plugin) ? config.plugin : [];
-  if (!config.plugin.includes(PROVIDER_ID)) {
-    config.plugin.push(PROVIDER_ID);
+  // OpenCode v2 servers resolve every `plugin` array entry as an npm package
+  // target, and no `cursor-acp` package exists; the plugin file under the
+  // plugin directory is auto-loaded and the provider block below keeps the
+  // plugin enabled. Drop any stale v1-era marker so the config stays loadable.
+  if (Array.isArray(config.plugin)) {
+    config.plugin = config.plugin.filter((entry) => entry !== PROVIDER_ID);
+    if (config.plugin.length === 0) {
+      delete config.plugin;
+    }
   }
 
   config.provider = config.provider && typeof config.provider === "object" ? config.provider : {};

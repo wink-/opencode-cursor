@@ -1,5 +1,6 @@
 node_modules/
-dist/
+# dist/ is intentionally tracked in this fork so `npm install -g` from the git
+# URL works on machines without bun (the upstream build tool). See FORK.md.
 *.log
 .DS_Store
 bun.lock
