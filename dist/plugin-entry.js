@@ -18372,6 +18372,7 @@ __export(exports_plugin, {
   resolveWorkspaceDirectory: () => resolveWorkspaceDirectory,
   resolvePromptForBackend: () => resolvePromptForBackend,
   resolveChatParamTools: () => resolveChatParamTools,
+  readBackendPreferenceFromConfig: () => readBackendPreferenceFromConfig,
   normalizeWorkspaceForCompare: () => normalizeWorkspaceForCompare,
   maybeEvictResumeChatId: () => maybeEvictResumeChatId,
   isRootPath: () => isRootPath,
@@ -18397,7 +18398,7 @@ __export(exports_plugin, {
 });
 import { tool as tool2 } from "@opencode-ai/plugin/tool";
 import { spawn as spawn4, spawnSync } from "child_process";
-import { realpathSync } from "fs";
+import { realpathSync, readFileSync as readFileSync3, statSync as statSync2 } from "fs";
 import { mkdir } from "fs/promises";
 import { homedir as homedir4 } from "os";
 import { isAbsolute, join as join5, relative, resolve as resolve4 } from "path";
@@ -18483,11 +18484,38 @@ function isCursorAgentAvailable() {
   cursorAgentAvailabilityCache = error?.code === "ENOENT" ? false : true;
   return cursorAgentAvailabilityCache;
 }
+function readBackendPreferenceFromConfig() {
+  try {
+    const base = resolveOpenCodeConfigPath();
+    for (const path2 of [`${base}c`, base]) {
+      let mtimeMs;
+      try {
+        mtimeMs = statSync2(path2).mtimeMs;
+      } catch {
+        continue;
+      }
+      if (backendConfigCache?.path === path2 && backendConfigCache.mtimeMs === mtimeMs) {
+        return backendConfigCache.value;
+      }
+      const raw = readFileSync3(path2, "utf8");
+      const parsed = JSON.parse(raw.replace(/^\s*\/\/.*$/gm, ""));
+      const value = parsed?.provider?.["cursor-acp"]?.backend;
+      backendConfigCache = {
+        path: path2,
+        mtimeMs,
+        value: typeof value === "string" ? value : undefined
+      };
+      return backendConfigCache.value;
+    }
+  } catch {}
+  return;
+}
 function resolveBackendForRequest(sdkApiKey) {
-  const parsed = parseCursorBackendPreference(process.env.CURSOR_ACP_BACKEND);
+  const source = process.env.CURSOR_ACP_BACKEND ?? readBackendPreferenceFromConfig();
+  const parsed = parseCursorBackendPreference(source);
   if (!parsed.valid) {
-    log23.warn("Invalid CURSOR_ACP_BACKEND value; falling back to auto", {
-      value: process.env.CURSOR_ACP_BACKEND
+    log23.warn("Invalid CURSOR_ACP_BACKEND or config backend value; falling back to auto", {
+      value: source
     });
   }
   return selectBackendForRequest({
@@ -20454,7 +20482,7 @@ function buildToolHookEntries(registry, fallbackBaseDir) {
   }
   return entries;
 }
-var log23, CURSOR_PROVIDER_ID2 = "cursor-acp", CURSOR_PROVIDER_PREFIX, CURSOR_PROXY_HOST = "127.0.0.1", CURSOR_PROXY_DEFAULT_PORT = 32124, CURSOR_PROXY_DEFAULT_BASE_URL, CURSOR_PROXY_HEALTH_TIMEOUT_MS = 3000, REUSE_EXISTING_PROXY, storedApiKey, cursorAgentAvailabilityCache, SESSION_WORKSPACE_CACHE_LIMIT = 200, FORCE_TOOL_MODE, AUTO_TRUST_WORKSPACE, EMIT_TOOL_UPDATES, FORWARD_TOOL_CALLS, TOOL_LOOP_MODE_RAW, TOOL_LOOP_MODE, TOOL_LOOP_MODE_VALID, PROVIDER_BOUNDARY_MODE_RAW, PROVIDER_BOUNDARY_MODE, PROVIDER_BOUNDARY_MODE_VALID, LEGACY_PROVIDER_BOUNDARY, PROVIDER_BOUNDARY, ENABLE_PROVIDER_BOUNDARY_AUTOFALLBACK, TOOL_LOOP_MAX_REPEAT_RAW, TOOL_LOOP_MAX_REPEAT, TOOL_LOOP_MAX_REPEAT_VALID, PROXY_EXECUTE_TOOL_CALLS, SUPPRESS_CONVERTER_TOOL_EVENTS, SHOULD_EMIT_TOOL_UPDATES, TOOL_HOOK_EXCLUSIONS, OPENCODE_NATIVE_TOOL_HOOK_EXCLUSIONS, NATIVE_CANONICAL_KEY_MAP, CursorPlugin = async ({ $, directory, worktree, client: client3, serverUrl }) => {
+var log23, CURSOR_PROVIDER_ID2 = "cursor-acp", CURSOR_PROVIDER_PREFIX, CURSOR_PROXY_HOST = "127.0.0.1", CURSOR_PROXY_DEFAULT_PORT = 32124, CURSOR_PROXY_DEFAULT_BASE_URL, CURSOR_PROXY_HEALTH_TIMEOUT_MS = 3000, REUSE_EXISTING_PROXY, storedApiKey, cursorAgentAvailabilityCache, backendConfigCache, SESSION_WORKSPACE_CACHE_LIMIT = 200, FORCE_TOOL_MODE, AUTO_TRUST_WORKSPACE, EMIT_TOOL_UPDATES, FORWARD_TOOL_CALLS, TOOL_LOOP_MODE_RAW, TOOL_LOOP_MODE, TOOL_LOOP_MODE_VALID, PROVIDER_BOUNDARY_MODE_RAW, PROVIDER_BOUNDARY_MODE, PROVIDER_BOUNDARY_MODE_VALID, LEGACY_PROVIDER_BOUNDARY, PROVIDER_BOUNDARY, ENABLE_PROVIDER_BOUNDARY_AUTOFALLBACK, TOOL_LOOP_MAX_REPEAT_RAW, TOOL_LOOP_MAX_REPEAT, TOOL_LOOP_MAX_REPEAT_VALID, PROXY_EXECUTE_TOOL_CALLS, SUPPRESS_CONVERTER_TOOL_EVENTS, SHOULD_EMIT_TOOL_UPDATES, TOOL_HOOK_EXCLUSIONS, OPENCODE_NATIVE_TOOL_HOOK_EXCLUSIONS, NATIVE_CANONICAL_KEY_MAP, CursorPlugin = async ({ $, directory, worktree, client: client3, serverUrl }) => {
   const workspaceDirectory = resolveWorkspaceDirectory(worktree, directory);
   log23.debug("Plugin initializing", {
     directory,
@@ -20699,6 +20727,7 @@ var log23, CURSOR_PROVIDER_ID2 = "cursor-acp", CURSOR_PROVIDER_PREFIX, CURSOR_PR
   };
 }, plugin_default;
 var init_plugin = __esm(() => {
+  init_plugin_toggle();
   init_openai_sse();
   init_parser();
   init_logger();

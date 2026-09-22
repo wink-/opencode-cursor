@@ -58,6 +58,16 @@ Upstream is tracked as the `upstream` remote; fixes live on `main`.
    auto-trusting the workspace it runs in is consistent with upstream's
    default-on `--force`. Opt out with `CURSOR_ACP_TRUST=false`.
 
+7. **Config-driven backend selection (2.5.8-fork.4).** The runtime backend
+   can now be selected from the OpenCode config — set
+   `"backend": "sdk"` under `provider["cursor-acp"]` in opencode.json(c) —
+   instead of exporting `CURSOR_ACP_BACKEND` in the OpenCode server process
+   (which is awkward to persist). Resolution order: `CURSOR_ACP_BACKEND` env
+   wins, then the config value, then `auto`. Use it together with a Cursor
+   API key stored via `opencode auth login` (cursor-acp provider) to run the
+   persistent-connection SDK backend and avoid the per-request cursor-agent
+   handshake.
+
 ## Install (any machine with node/npm + OpenCode v2.0.x)
 
 ```bash

@@ -2,10 +2,11 @@ import type { Plugin, PluginInput } from "@opencode-ai/plugin";
 import { tool } from "@opencode-ai/plugin/tool";
 import type { Auth } from "@opencode-ai/sdk";
 import { spawn, spawnSync } from "child_process";
-import { realpathSync } from "fs";
+import { realpathSync, readFileSync, statSync } from "fs";
 import { mkdir } from "fs/promises";
 import { homedir } from "os";
 import { isAbsolute, join, relative, resolve } from "path";
+import { resolveOpenCodeConfigPath } from "./plugin-toggle.js";
 import { ToolMapper, type ToolUpdate } from "./acp/tools.js";
 import { LineBuffer } from "./streaming/line-buffer.js";
 import { StreamToSseConverter, formatSseDone } from "./streaming/openai-sse.js";
@@ -231,11 +232,50 @@ function isCursorAgentAvailable(): boolean {
   return cursorAgentAvailabilityCache;
 }
 
+let backendConfigCache: { path: string; mtimeMs: number; value: string | undefined } | undefined;
+
+/**
+ * Fork addition: allow selecting the runtime backend from the OpenCode config
+ * (`provider["cursor-acp"].backend = "sdk" | "cursor-agent" | "auto"`) when
+ * CURSOR_ACP_BACKEND is not set in the server environment. Setting env vars
+ * in the OpenCode server process is awkward; the config file already travels
+ * with machines that sync their opencode config.
+ */
+export function readBackendPreferenceFromConfig(): string | undefined {
+  try {
+    const base = resolveOpenCodeConfigPath();
+    for (const path of [`${base}c`, base]) {
+      let mtimeMs: number;
+      try {
+        mtimeMs = statSync(path).mtimeMs;
+      } catch {
+        continue;
+      }
+      if (backendConfigCache?.path === path && backendConfigCache.mtimeMs === mtimeMs) {
+        return backendConfigCache.value;
+      }
+      const raw = readFileSync(path, "utf8");
+      const parsed = JSON.parse(raw.replace(/^\s*\/\/.*$/gm, ""));
+      const value = parsed?.provider?.["cursor-acp"]?.backend;
+      backendConfigCache = {
+        path,
+        mtimeMs,
+        value: typeof value === "string" ? value : undefined,
+      };
+      return backendConfigCache.value;
+    }
+  } catch {
+    // Unreadable or invalid config — fall back to the default preference.
+  }
+  return undefined;
+}
+
 function resolveBackendForRequest(sdkApiKey: string | undefined): CursorRuntimeBackend {
-  const parsed = parseCursorBackendPreference(process.env.CURSOR_ACP_BACKEND);
+  const source = process.env.CURSOR_ACP_BACKEND ?? readBackendPreferenceFromConfig();
+  const parsed = parseCursorBackendPreference(source);
   if (!parsed.valid) {
-    log.warn("Invalid CURSOR_ACP_BACKEND value; falling back to auto", {
-      value: process.env.CURSOR_ACP_BACKEND,
+    log.warn("Invalid CURSOR_ACP_BACKEND or config backend value; falling back to auto", {
+      value: source,
     });
   }
 

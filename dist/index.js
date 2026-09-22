@@ -46,6 +46,70 @@ var __export = (target, all) => {
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 var __require = /* @__PURE__ */ createRequire(import.meta.url);
 
+// src/plugin-toggle.ts
+import { existsSync, readFileSync } from "fs";
+import { homedir } from "os";
+import { join, resolve } from "path";
+function matchesPlugin(entry) {
+  if (entry === CURSOR_PROVIDER_ID)
+    return true;
+  if (entry === NPM_PACKAGE_NAME)
+    return true;
+  if (entry.startsWith(`${NPM_PACKAGE_NAME}@`))
+    return true;
+  return false;
+}
+function resolveOpenCodeConfigPath(env = process.env) {
+  if (env.OPENCODE_CONFIG && env.OPENCODE_CONFIG.length > 0) {
+    return resolve(env.OPENCODE_CONFIG);
+  }
+  const configHome = env.XDG_CONFIG_HOME && env.XDG_CONFIG_HOME.length > 0 ? env.XDG_CONFIG_HOME : join(homedir(), ".config");
+  return join(configHome, "opencode", "opencode.json");
+}
+function isCursorPluginEnabledInConfig(config) {
+  if (!config || typeof config !== "object") {
+    return true;
+  }
+  const configObject = config;
+  if (configObject.provider && typeof configObject.provider === "object") {
+    if (CURSOR_PROVIDER_ID in configObject.provider) {
+      return true;
+    }
+  }
+  if (Array.isArray(configObject.plugin)) {
+    return configObject.plugin.some((entry) => matchesPlugin(entry));
+  }
+  return true;
+}
+function shouldEnableCursorPlugin(env = process.env) {
+  const configPath = resolveOpenCodeConfigPath(env);
+  if (!existsSync(configPath)) {
+    return {
+      enabled: true,
+      configPath,
+      reason: "config_missing"
+    };
+  }
+  try {
+    const raw = readFileSync(configPath, "utf8");
+    const parsed = JSON.parse(raw);
+    const enabled = isCursorPluginEnabledInConfig(parsed);
+    return {
+      enabled,
+      configPath,
+      reason: enabled ? "enabled" : "disabled_in_plugin_array"
+    };
+  } catch {
+    return {
+      enabled: true,
+      configPath,
+      reason: "config_unreadable_or_invalid"
+    };
+  }
+}
+var CURSOR_PROVIDER_ID = "cursor-acp", NPM_PACKAGE_NAME = "@rama_nigg/open-cursor";
+var init_plugin_toggle = () => {};
+
 // src/acp/tools.ts
 class ToolMapper {
   async mapCursorEventToAcp(event, sessionId) {
@@ -2902,15 +2966,15 @@ class SkillResolver {
 }
 
 // src/auth.ts
-import { existsSync as existsSync2 } from "fs";
-import { homedir as homedir2, platform } from "os";
-import { join as join2 } from "path";
+import { existsSync as existsSync3 } from "fs";
+import { homedir as homedir3, platform } from "os";
+import { join as join3 } from "path";
 function getHomeDir() {
   const override = process.env.CURSOR_ACP_HOME_DIR;
   if (override && override.length > 0) {
     return override;
   }
-  return homedir2();
+  return homedir3();
 }
 function verifyCursorAuth() {
   const apiKey = process.env.CURSOR_API_KEY;
@@ -2920,7 +2984,7 @@ function verifyCursorAuth() {
   }
   const possiblePaths = getPossibleAuthPaths();
   for (const authPath of possiblePaths) {
-    if (existsSync2(authPath)) {
+    if (existsSync3(authPath)) {
       log9.debug("Auth file found", { path: authPath });
       return true;
     }
@@ -2958,23 +3022,23 @@ function getPossibleAuthPaths() {
   const authFiles = ["cli-config.json", "auth.json"];
   if (isDarwin) {
     for (const file of authFiles) {
-      paths.push(join2(home, ".cursor", file));
+      paths.push(join3(home, ".cursor", file));
     }
     for (const file of authFiles) {
-      paths.push(join2(home, ".config", "cursor", file));
+      paths.push(join3(home, ".config", "cursor", file));
     }
   } else {
     for (const file of authFiles) {
-      paths.push(join2(home, ".config", "cursor", file));
+      paths.push(join3(home, ".config", "cursor", file));
     }
     const xdgConfig = process.env.XDG_CONFIG_HOME;
-    if (xdgConfig && xdgConfig !== join2(home, ".config")) {
+    if (xdgConfig && xdgConfig !== join3(home, ".config")) {
       for (const file of authFiles) {
-        paths.push(join2(xdgConfig, "cursor", file));
+        paths.push(join3(xdgConfig, "cursor", file));
       }
     }
     for (const file of authFiles) {
-      paths.push(join2(home, ".cursor", file));
+      paths.push(join3(home, ".cursor", file));
     }
   }
   return paths;
@@ -2982,7 +3046,7 @@ function getPossibleAuthPaths() {
 function getAuthFilePath() {
   const possiblePaths = getPossibleAuthPaths();
   for (const authPath of possiblePaths) {
-    if (existsSync2(authPath)) {
+    if (existsSync3(authPath)) {
       return authPath;
     }
   }
@@ -2999,8 +3063,8 @@ var init_auth = __esm(() => {
 // src/client/sdk-child.ts
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
-import { existsSync as existsSync3 } from "node:fs";
+import { dirname, resolve as resolve2 } from "node:path";
+import { existsSync as existsSync4 } from "node:fs";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import { randomBytes } from "node:crypto";
@@ -3017,7 +3081,7 @@ function extractEventJson(line) {
 function resolveNodeBinary() {
   return process.env.CURSOR_ACP_NODE_BIN || "node";
 }
-function resolveRunnerPath(currentFile = fileURLToPath(import.meta.url), checkExists = existsSync3, env = process.env) {
+function resolveRunnerPath(currentFile = fileURLToPath(import.meta.url), checkExists = existsSync4, env = process.env) {
   const override = env.CURSOR_ACP_SDK_RUNNER_PATH?.trim();
   if (override) {
     if (checkExists(override)) {
@@ -3027,8 +3091,8 @@ function resolveRunnerPath(currentFile = fileURLToPath(import.meta.url), checkEx
   }
   const currentDir = dirname(currentFile);
   const candidates = [
-    resolve(currentDir, "../../scripts/sdk-runner.mjs"),
-    resolve(currentDir, "../scripts/sdk-runner.mjs")
+    resolve2(currentDir, "../../scripts/sdk-runner.mjs"),
+    resolve2(currentDir, "../scripts/sdk-runner.mjs")
   ];
   for (const candidate of candidates) {
     if (checkExists(candidate)) {
@@ -3188,8 +3252,8 @@ function createSdkBunChild(options) {
   let requestId;
   let resolveExited;
   let rejectExited;
-  const exited = new Promise((resolve2, reject) => {
-    resolveExited = resolve2;
+  const exited = new Promise((resolve3, reject) => {
+    resolveExited = resolve3;
     rejectExited = reject;
   });
   const stdout = new ReadableStream({
@@ -3234,7 +3298,7 @@ function createSdkNodeChild(options) {
 async function listModelsViaRunner(apiKey) {
   try {
     await singleton.ensureRunning(apiKey);
-    return new Promise(async (resolve2, reject) => {
+    return new Promise(async (resolve3, reject) => {
       const timeout = setTimeout(() => reject(new Error("Timeout")), 15000);
       const events = [];
       let gotModels = false;
@@ -3260,7 +3324,7 @@ async function listModelsViaRunner(apiKey) {
         if (code !== 0)
           return reject(new Error(`Code ${code}`));
         const m = events.find((e) => e.type === "models");
-        resolve2(m?.models ?? []);
+        resolve3(m?.models ?? []);
       }, (e) => {
         clearTimeout(timeout);
         reject(e);
@@ -3291,8 +3355,8 @@ var init_sdk_child = __esm(() => {
         let requestId;
         let resolveExited;
         let rejectExited;
-        const exited = new Promise((resolve2, reject) => {
-          resolveExited = resolve2;
+        const exited = new Promise((resolve3, reject) => {
+          resolveExited = resolve3;
           rejectExited = reject;
         });
         const dummyController = {
@@ -3471,70 +3535,6 @@ var init_model_discovery = __esm(() => {
   init_errors();
   init_binary();
 });
-
-// src/plugin-toggle.ts
-import { existsSync as existsSync4, readFileSync } from "fs";
-import { homedir as homedir3 } from "os";
-import { join as join4, resolve as resolve2 } from "path";
-function matchesPlugin(entry) {
-  if (entry === CURSOR_PROVIDER_ID)
-    return true;
-  if (entry === NPM_PACKAGE_NAME)
-    return true;
-  if (entry.startsWith(`${NPM_PACKAGE_NAME}@`))
-    return true;
-  return false;
-}
-function resolveOpenCodeConfigPath(env = process.env) {
-  if (env.OPENCODE_CONFIG && env.OPENCODE_CONFIG.length > 0) {
-    return resolve2(env.OPENCODE_CONFIG);
-  }
-  const configHome = env.XDG_CONFIG_HOME && env.XDG_CONFIG_HOME.length > 0 ? env.XDG_CONFIG_HOME : join4(homedir3(), ".config");
-  return join4(configHome, "opencode", "opencode.json");
-}
-function isCursorPluginEnabledInConfig(config) {
-  if (!config || typeof config !== "object") {
-    return true;
-  }
-  const configObject = config;
-  if (configObject.provider && typeof configObject.provider === "object") {
-    if (CURSOR_PROVIDER_ID in configObject.provider) {
-      return true;
-    }
-  }
-  if (Array.isArray(configObject.plugin)) {
-    return configObject.plugin.some((entry) => matchesPlugin(entry));
-  }
-  return true;
-}
-function shouldEnableCursorPlugin(env = process.env) {
-  const configPath = resolveOpenCodeConfigPath(env);
-  if (!existsSync4(configPath)) {
-    return {
-      enabled: true,
-      configPath,
-      reason: "config_missing"
-    };
-  }
-  try {
-    const raw = readFileSync(configPath, "utf8");
-    const parsed = JSON.parse(raw);
-    const enabled = isCursorPluginEnabledInConfig(parsed);
-    return {
-      enabled,
-      configPath,
-      reason: enabled ? "enabled" : "disabled_in_plugin_array"
-    };
-  } catch {
-    return {
-      enabled: true,
-      configPath,
-      reason: "config_unreadable_or_invalid"
-    };
-  }
-}
-var CURSOR_PROVIDER_ID = "cursor-acp", NPM_PACKAGE_NAME = "@rama_nigg/open-cursor";
-var init_plugin_toggle = () => {};
 
 // src/models/pricing.ts
 function getCursorModelCost(modelId) {
@@ -18372,6 +18372,7 @@ __export(exports_plugin, {
   resolveWorkspaceDirectory: () => resolveWorkspaceDirectory,
   resolvePromptForBackend: () => resolvePromptForBackend,
   resolveChatParamTools: () => resolveChatParamTools,
+  readBackendPreferenceFromConfig: () => readBackendPreferenceFromConfig,
   normalizeWorkspaceForCompare: () => normalizeWorkspaceForCompare,
   maybeEvictResumeChatId: () => maybeEvictResumeChatId,
   isRootPath: () => isRootPath,
@@ -18397,7 +18398,7 @@ __export(exports_plugin, {
 });
 import { tool as tool2 } from "@opencode-ai/plugin/tool";
 import { spawn as spawn4, spawnSync } from "child_process";
-import { realpathSync } from "fs";
+import { realpathSync, readFileSync as readFileSync3, statSync as statSync2 } from "fs";
 import { mkdir } from "fs/promises";
 import { homedir as homedir4 } from "os";
 import { isAbsolute, join as join5, relative, resolve as resolve4 } from "path";
@@ -18483,11 +18484,38 @@ function isCursorAgentAvailable() {
   cursorAgentAvailabilityCache = error?.code === "ENOENT" ? false : true;
   return cursorAgentAvailabilityCache;
 }
+function readBackendPreferenceFromConfig() {
+  try {
+    const base = resolveOpenCodeConfigPath();
+    for (const path2 of [`${base}c`, base]) {
+      let mtimeMs;
+      try {
+        mtimeMs = statSync2(path2).mtimeMs;
+      } catch {
+        continue;
+      }
+      if (backendConfigCache?.path === path2 && backendConfigCache.mtimeMs === mtimeMs) {
+        return backendConfigCache.value;
+      }
+      const raw = readFileSync3(path2, "utf8");
+      const parsed = JSON.parse(raw.replace(/^\s*\/\/.*$/gm, ""));
+      const value = parsed?.provider?.["cursor-acp"]?.backend;
+      backendConfigCache = {
+        path: path2,
+        mtimeMs,
+        value: typeof value === "string" ? value : undefined
+      };
+      return backendConfigCache.value;
+    }
+  } catch {}
+  return;
+}
 function resolveBackendForRequest(sdkApiKey) {
-  const parsed = parseCursorBackendPreference(process.env.CURSOR_ACP_BACKEND);
+  const source = process.env.CURSOR_ACP_BACKEND ?? readBackendPreferenceFromConfig();
+  const parsed = parseCursorBackendPreference(source);
   if (!parsed.valid) {
-    log23.warn("Invalid CURSOR_ACP_BACKEND value; falling back to auto", {
-      value: process.env.CURSOR_ACP_BACKEND
+    log23.warn("Invalid CURSOR_ACP_BACKEND or config backend value; falling back to auto", {
+      value: source
     });
   }
   return selectBackendForRequest({
@@ -20454,7 +20482,7 @@ function buildToolHookEntries(registry, fallbackBaseDir) {
   }
   return entries;
 }
-var log23, CURSOR_PROVIDER_ID2 = "cursor-acp", CURSOR_PROVIDER_PREFIX, CURSOR_PROXY_HOST = "127.0.0.1", CURSOR_PROXY_DEFAULT_PORT = 32124, CURSOR_PROXY_DEFAULT_BASE_URL, CURSOR_PROXY_HEALTH_TIMEOUT_MS = 3000, REUSE_EXISTING_PROXY, storedApiKey, cursorAgentAvailabilityCache, SESSION_WORKSPACE_CACHE_LIMIT = 200, FORCE_TOOL_MODE, AUTO_TRUST_WORKSPACE, EMIT_TOOL_UPDATES, FORWARD_TOOL_CALLS, TOOL_LOOP_MODE_RAW, TOOL_LOOP_MODE, TOOL_LOOP_MODE_VALID, PROVIDER_BOUNDARY_MODE_RAW, PROVIDER_BOUNDARY_MODE, PROVIDER_BOUNDARY_MODE_VALID, LEGACY_PROVIDER_BOUNDARY, PROVIDER_BOUNDARY, ENABLE_PROVIDER_BOUNDARY_AUTOFALLBACK, TOOL_LOOP_MAX_REPEAT_RAW, TOOL_LOOP_MAX_REPEAT, TOOL_LOOP_MAX_REPEAT_VALID, PROXY_EXECUTE_TOOL_CALLS, SUPPRESS_CONVERTER_TOOL_EVENTS, SHOULD_EMIT_TOOL_UPDATES, TOOL_HOOK_EXCLUSIONS, OPENCODE_NATIVE_TOOL_HOOK_EXCLUSIONS, NATIVE_CANONICAL_KEY_MAP, CursorPlugin = async ({ $, directory, worktree, client: client3, serverUrl }) => {
+var log23, CURSOR_PROVIDER_ID2 = "cursor-acp", CURSOR_PROVIDER_PREFIX, CURSOR_PROXY_HOST = "127.0.0.1", CURSOR_PROXY_DEFAULT_PORT = 32124, CURSOR_PROXY_DEFAULT_BASE_URL, CURSOR_PROXY_HEALTH_TIMEOUT_MS = 3000, REUSE_EXISTING_PROXY, storedApiKey, cursorAgentAvailabilityCache, backendConfigCache, SESSION_WORKSPACE_CACHE_LIMIT = 200, FORCE_TOOL_MODE, AUTO_TRUST_WORKSPACE, EMIT_TOOL_UPDATES, FORWARD_TOOL_CALLS, TOOL_LOOP_MODE_RAW, TOOL_LOOP_MODE, TOOL_LOOP_MODE_VALID, PROVIDER_BOUNDARY_MODE_RAW, PROVIDER_BOUNDARY_MODE, PROVIDER_BOUNDARY_MODE_VALID, LEGACY_PROVIDER_BOUNDARY, PROVIDER_BOUNDARY, ENABLE_PROVIDER_BOUNDARY_AUTOFALLBACK, TOOL_LOOP_MAX_REPEAT_RAW, TOOL_LOOP_MAX_REPEAT, TOOL_LOOP_MAX_REPEAT_VALID, PROXY_EXECUTE_TOOL_CALLS, SUPPRESS_CONVERTER_TOOL_EVENTS, SHOULD_EMIT_TOOL_UPDATES, TOOL_HOOK_EXCLUSIONS, OPENCODE_NATIVE_TOOL_HOOK_EXCLUSIONS, NATIVE_CANONICAL_KEY_MAP, CursorPlugin = async ({ $, directory, worktree, client: client3, serverUrl }) => {
   const workspaceDirectory = resolveWorkspaceDirectory(worktree, directory);
   log23.debug("Plugin initializing", {
     directory,
@@ -20699,6 +20727,7 @@ var log23, CURSOR_PROVIDER_ID2 = "cursor-acp", CURSOR_PROVIDER_PREFIX, CURSOR_PR
   };
 }, plugin_default;
 var init_plugin = __esm(() => {
+  init_plugin_toggle();
   init_openai_sse();
   init_parser();
   init_logger();

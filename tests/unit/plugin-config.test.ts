@@ -52,4 +52,38 @@ describe("Plugin Configuration", () => {
       expect(enabled).toBe(false);
     });
   });
+
+  describe("readBackendPreferenceFromConfig (fork)", () => {
+    it("reads provider.cursor-acp.backend from the opencode config", async () => {
+      const { writeFileSync, rmSync } = await import("node:fs");
+      const { readBackendPreferenceFromConfig } = await import("../../src/plugin.js");
+      const tmp = `/tmp/oc-backend-test-${Date.now()}.json`;
+      writeFileSync(tmp, JSON.stringify({ provider: { "cursor-acp": { backend: "sdk" } } }));
+      const prev = process.env.OPENCODE_CONFIG;
+      process.env.OPENCODE_CONFIG = tmp;
+      try {
+        expect(readBackendPreferenceFromConfig()).toBe("sdk");
+      } finally {
+        if (prev === undefined) delete process.env.OPENCODE_CONFIG;
+        else process.env.OPENCODE_CONFIG = prev;
+        rmSync(tmp, { force: true });
+      }
+    });
+
+    it("returns undefined when no backend key is present", async () => {
+      const { writeFileSync, rmSync } = await import("node:fs");
+      const { readBackendPreferenceFromConfig } = await import("../../src/plugin.js");
+      const tmp = `/tmp/oc-backend-test-${Date.now()}.json`;
+      writeFileSync(tmp, JSON.stringify({ provider: { "cursor-acp": { name: "Cursor" } } }));
+      const prev = process.env.OPENCODE_CONFIG;
+      process.env.OPENCODE_CONFIG = tmp;
+      try {
+        expect(readBackendPreferenceFromConfig()).toBeUndefined();
+      } finally {
+        if (prev === undefined) delete process.env.OPENCODE_CONFIG;
+        else process.env.OPENCODE_CONFIG = prev;
+        rmSync(tmp, { force: true });
+      }
+    });
+  });
 });
