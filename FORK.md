@@ -81,12 +81,32 @@ Reinstall everywhere with `npm install -g github:wink-/opencode-cursor`.
 
 ## Validation
 
-Verified on OpenCode v2.0.14 (Linux): plugin loads clean in server logs
-(no `failed to load plugin` entries), `opencode models` lists 231
-`cursor-acp/*` models, and `open-cursor install` produces a config without
-the `plugin`-array marker.
+Plugin load: verified on OpenCode v2.0.14 (Linux) — no `failed to load plugin`
+entries in server logs, `opencode models` lists 231+ `cursor-acp/*` models,
+`open-cursor install` produces a config without the `plugin`-array marker.
 
-Latency (tiny "reply OK" prompt, same model claude-sonnet-5, this fork's
-dev machine, opencode run end-to-end): native provider baseline ~0.9s;
-cursor-acp with upstream defaults ~9-11s (per-request cursor-agent spawn);
-after the 2.5.8-fork.2 defaults — see docs/log.md for the benchmark table.
+Workspace trust fix: in a directory cursor-agent hasn't trusted, without
+`--trust` a one-shot CLI call exits 1 on the interactive prompt (~0.8s) and
+the plugin's piped spawn blocks until request timeout; with `--trust` the
+same call completes normally.
+
+Latency (tiny "reply OK" prompt, claude-sonnet-5, dev machine, opencode run
+end-to-end unless noted):
+
+| Path | Time |
+|---|---|
+| native provider (github-copilot, same model) | 0.8-1.3s |
+| direct `cursor-agent -p` one-shot | 6.4-9.8s |
+| cursor-agent process boot alone (`--version`) | ~0.6s |
+| through plugin, pool off (fork.1) | 7.6-11.2s (warm turns 9.0-9.5s) |
+| through plugin, fork.2+ defaults | marginal: pool saves the Node runner boot only; resume helps anchored multi-turns |
+
+Conclusion: the dominant per-request cost is inside cursor-agent itself
+(spawn + auth + gateway handshake + model TTFB), which reoccurs every request
+because the runner spawns cursor-agent per invocation. The plugin cannot
+remove it on the cursor-agent backend; a Cursor API key
+(`CURSOR_ACP_BACKEND=sdk`) would enable the persistent-connection SDK path.
+
+Known test failures: `tests/unit/proxy/plugin-resume.test.ts` has 3 failures
+from cross-test cache leakage that also fail on pristine upstream 2.5.8;
+fork changes add no new failures.
